@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeFi ステーキング シミュレーター</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        function StakingSimulator() {
+            // 入力パラメータ
+            const [initialStaking, setInitialStaking] = useState(500000);
+            const [apy, setApy] = useState(1452.184);
+            const [dailyUSDT, setDailyUSDT] = useState(2000);
+            const [days, setDays] = useState(365);
+
+            // 計算結果
+            const [results, setResults] = useState({
+                patternA: { staking: 0, turbo: 0, total: 0, usdt: 0, profit: 0 },
+                patternB: { staking: 0, turbo: 0, total: 0, usdt: 0, profit: 0 },
+                chartData: { labels: [], dataA: [], dataB: [] }
+            });
+
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            // 計算ロジック
+            const calculateSimulation = (S_init, APY, U_daily, Days) => {
+                const R_daily = APY / 100 / 365; // 日利
+
+                // パターンA：完全放置（自動複利）
+                let S_A = S_init;
+                const chartLabelsA = [];
+                const chartDataA = [];
+
+                for (let t = 0; t <= Days; t++) {
+                    if (t === 0) {
+                        chartLabelsA.push(t);
+                        chartDataA.push(S_init);
+                    } else {
+                        S_A = S_A * (1 + R_daily);
+                        if (t % Math.max(1, Math.floor(Days / 100)) === 0 || t === Days) {
+                            chartLabelsA.push(t);
+                            chartDataA.push(Math.round(S_A));
+                        }
+                    }
+                }
+
+                const profitA = S_A - S_init;
+
+                // パターンB：毎日利息受取＋USDT再投資（ターボ）
+                let S_B = S_init;
+                let P_B = 0; // ターボプール
+                let usdt_used = 0;
+                const chartDataB = [];
+
+                for (let t = 0; t <= Days; t++) {
+                    if (t === 0) {
+                        chartDataB.push(S_init);
+                    } else {
+                        // ステップ1：利息発生
+                        const I = S_B * R_daily;
+                        // ステップ2：ターボプールに追加
+                        P_B += I;
+                        // ステップ3：ターボ実行（毎日U_daily分）
+                        if (P_B >= U_daily) {
+                            P_B -= U_daily;
+                            S_B += 2 * U_daily; // 利息U_daily + 支払ったUSDT U_daily
+                            usdt_used += U_daily;
+                        }
+                        // チャート用（同じペースで記録）
+                        if (t % Math.max(1, Math.floor(Days / 100)) === 0 || t === Days) {
+                            chartDataB.push(Math.round(S_B + P_B));
+                        }
+                    }
+                }
+
+                const totalB = S_B + P_B;
+                const profitB = totalB - S_init - usdt_used;
+
+                return {
+                    patternA: {
+                        staking: Math.round(S_A),
+                        turbo: 0,
+                        total: Math.round(S_A),
+                        usdt: 0,
+                        profit: Math.round(profitA)
+                    },
+                    patternB: {
+                        staking: Math.round(S_B),
+                        turbo: Math.round(P_B),
+                        total: Math.round(totalB),
+                        usdt: Math.round(usdt_used),
+                        profit: Math.round(profitB)
+                    },
+                    chartData: {
+                        labels: chartLabelsA,
+                        dataA: chartDataA,
+                        dataB: chartDataB
+                    }
+                };
+            };
+
+            // 計算実行
+            useEffect(() => {
+                const newResults = calculateSimulation(initialStaking, apy, dailyUSDT, days);
+                setResults(newResults);
+            }, [initialStaking, apy, dailyUSDT, days]);
+
+            // チャート描画
+            useEffect(() => {
+                if (chartRef.current && results.chartData.labels.length > 0) {
+                    const ctx = chartRef.current.getContext('2d');
+
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+
+                    chartInstance.current = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: results.chartData.labels,
+                            datasets: [
+                                {
+                                    label: 'パターンA：自動複利',
+                                    data: results.chartData.dataA,
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    tension: 0.3,
+                                    borderWidth: 2,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 6,
+                                    fill: true
+                                },
+                                {
+                                    label: 'パターンB：手動ターボ',
+                                    data: results.chartData.dataB,
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    tension: 0.3,
+                                    borderWidth: 2,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 6,
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top',
+                                    labels: {
+                                        font: { size: 12, weight: 'bold' },
+                                        padding: 20,
+                                        usePointStyle: true
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: '資産成長比較（横軸：経過日数、縦軸：実質総資産）',
+                                    font: { size: 14, weight: 'bold' }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '¥' + value.toLocaleString();
+                                        },
+                                        font: { size: 10 }
+                                    },
+                                    grid: {
+                                        color: 'rgba(200, 200, 200, 0.1)'
+                                    }
+                                },
+                                x: {
+                                    ticks: {
+                                        font: { size: 10 }
+                                    },
+                                    grid: {
+                                        display: false
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                return () => {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                };
+            }, [results.chartData]);
+
+            const formatCurrency = (value) => {
+                return '¥' + Math.round(value).toLocaleString();
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+                    <div className="max-w-7xl mx-auto">
+                        {/* ヘッダー */}
+                        <div className="mb-8">
+                            <h1 className="text-4xl font-bold text-gray-800 mb-2">
+                                🚀 DeFi ステーキング シミュレーター
+                            </h1>
+                            <p className="text-gray-600">
+                                「自動複利」vs「手動ターボ」の運用パターン比較
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            {/* 左側：入力パネル */}
+                            <div className="lg:col-span-1">
+                                <div className="bg-white rounded-lg shadow-lg p-6 sticky top-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                        📊 パラメータ設定
+                                    </h2>
+
+                                    {/* 初期ステーキング額 */}
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            初期ステーキング額
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="range"
+                                                min="100000"
+                                                max="2000000"
+                                                step="10000"
+                                                value={initialStaking}
+                                                onChange={(e) => setInitialStaking(Number(e.target.value))}
+                                                className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                        </div>
+                                        <input
+                                            type="number"
+                                            value={initialStaking}
+                                            onChange={(e) => setInitialStaking(Number(e.target.value))}
+                                            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-right text-lg font-semibold"
+                                        />
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            {formatCurrency(initialStaking)}
+                                        </p>
+                                    </div>
+
+                                    {/* 年間利回り */}
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            年間利回り (APY)
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="3000"
+                                                step="10"
+                                                value={apy}
+                                                onChange={(e) => setApy(Number(e.target.value))}
+                                                className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                        </div>
+                                        <input
+                                            type="number"
+                                            value={apy}
+                                            onChange={(e) => setApy(Number(e.target.value))}
+                                            step="0.001"
+                                            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-right text-lg font-semibold"
+                                        />
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            日利: {((apy / 100 / 365) * 100).toFixed(4)}%
+                                        </p>
+                                    </div>
+
+                                    {/* 1日あたりの使用USDT */}
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            1日あたりの使用USDT
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="10000"
+                                                step="100"
+                                                value={dailyUSDT}
+                                                onChange={(e) => setDailyUSDT(Number(e.target.value))}
+                                                className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                        </div>
+                                        <input
+                                            type="number"
+                                            value={dailyUSDT}
+                                            onChange={(e) => setDailyUSDT(Number(e.target.value))}
+                                            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-right text-lg font-semibold"
+                                        />
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            {formatCurrency(dailyUSDT)} / 日
+                                        </p>
+                                    </div>
+
+                                    {/* シミュレーション日数 */}
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            シミュレーション日数
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="range"
+                                                min="1"
+                                                max="730"
+                                                step="1"
+                                                value={days}
+                                                onChange={(e) => setDays(Number(e.target.value))}
+                                                className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                        </div>
+                                        <input
+                                            type="number"
+                                            value={days}
+                                            onChange={(e) => setDays(Number(e.target.value))}
+                                            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-right text-lg font-semibold"
+                                        />
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            {days} 日間のシミュレーション
+                                        </p>
+                                    </div>
+
+                                    {/* クイックプリセット */}
+                                    <div className="mt-8 pt-6 border-t border-gray-200">
+                                        <p className="text-sm font-semibold text-gray-700 mb-3">クイックプリセット</p>
+                                        <button
+                                            onClick={() => {
+                                                setInitialStaking(500000);
+                                                setApy(1452.184);
+                                                setDailyUSDT(2000);
+                                                setDays(365);
+                                            }}
+                                            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition"
+                                        >
+                                            デフォルトに戻す
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 右側：グラフと結果表 */}
+                            <div className="lg:col-span-2 space-y-8">
+                                {/* グラフ */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <canvas ref={chartRef} style={{ maxHeight: '400px' }}></canvas>
+                                </div>
+
+                                {/* 比較表 */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                        📈 結果比較
+                                    </h2>
+
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="bg-gray-100 border-b-2 border-gray-300">
+                                                    <th className="px-4 py-3 text-left font-bold text-gray-700">
+                                                        項目
+                                                    </th>
+                                                    <th className="px-4 py-3 text-right font-bold text-blue-600">
+                                                        パターンA
+                                                        <br />
+                                                        <span className="text-xs text-gray-500">
+                                                            （自動複利）
+                                                        </span>
+                                                    </th>
+                                                    <th className="px-4 py-3 text-right font-bold text-green-600">
+                                                        パターンB
+                                                        <br />
+                                                        <span className="text-xs text-gray-500">
+                                                            （手動ターボ）
+                                                        </span>
+                                                    </th>
+                                                    <th className="px-4 py-3 text-right font-bold text-gray-700">
+                                                        差額
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr className="border-b border-gray-200 hover:bg-gray-50">
+                                                    <td className="px-4 py-3 font-semibold text-gray-700">
+                                                        ステーキング残高
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-blue-600 font-semibold">
+                                                        {formatCurrency(results.patternA.staking)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-green-600 font-semibold">
+                                                        {formatCurrency(results.patternB.staking)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-gray-700 font-semibold">
+                                                        {formatCurrency(
+                                                            results.patternB.staking - results.patternA.staking
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr className="border-b border-gray-200 hover:bg-gray-50">
+                                                    <td className="px-4 py-3 font-semibold text-gray-700">
+                                                        ターボプール残分
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-blue-600 font-semibold">
+                                                        {formatCurrency(results.patternA.turbo)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-green-600 font-semibold">
+                                                        {formatCurrency(results.patternB.turbo)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-gray-700 font-semibold">
+                                                        {formatCurrency(results.patternB.turbo - results.patternA.turbo)}
+                                                    </td>
+                                                </tr>
+                                                <tr className="border-b border-gray-200 bg-yellow-50 hover:bg-yellow-100">
+                                                    <td className="px-4 py-3 font-bold text-gray-800">
+                                                        実質総資産
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-blue-700 font-bold text-lg">
+                                                        {formatCurrency(results.patternA.total)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-green-700 font-bold text-lg">
+                                                        {formatCurrency(results.patternB.total)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-gray-800 font-bold text-lg">
+                                                        {formatCurrency(
+                                                            results.patternB.total - results.patternA.total
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr className="border-b border-gray-200 hover:bg-gray-50">
+                                                    <td className="px-4 py-3 font-semibold text-gray-700">
+                                                        使用USDT累計
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-blue-600 font-semibold">
+                                                        {formatCurrency(results.patternA.usdt)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-green-600 font-semibold">
+                                                        {formatCurrency(results.patternB.usdt)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-red-600 font-semibold">
+                                                        {formatCurrency(-(results.patternB.usdt - results.patternA.usdt))}
+                                                    </td>
+                                                </tr>
+                                                <tr className="bg-blue-50 hover:bg-blue-100">
+                                                    <td className="px-4 py-3 font-bold text-gray-800">
+                                                        純利益
+                                                    </td>
+                                                    <td
+                                                        className={`px-4 py-3 text-right font-bold text-lg ${
+                                                            results.patternA.profit >= 0
+                                                                ? 'text-blue-700'
+                                                                : 'text-red-600'
+                                                        }`}
+                                                    >
+                                                        {formatCurrency(results.patternA.profit)}
+                                                    </td>
+                                                    <td
+                                                        className={`px-4 py-3 text-right font-bold text-lg ${
+                                                            results.patternB.profit >= 0
+                                                                ? 'text-green-700'
+                                                                : 'text-red-600'
+                                                        }`}
+                                                    >
+                                                        {formatCurrency(results.patternB.profit)}
+                                                    </td>
+                                                    <td
+                                                        className={`px-4 py-3 text-right font-bold text-lg ${
+                                                            results.patternB.profit >= results.patternA.profit
+                                                                ? 'text-green-600'
+                                                                : 'text-red-600'
+                                                        }`}
+                                                    >
+                                                        {formatCurrency(
+                                                            results.patternB.profit - results.patternA.profit
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* インサイト */}
+                                    <div className="mt-6 pt-6 border-t border-gray-200">
+                                        <p className="text-sm text-gray-600 mb-3">
+                                            <strong>💡 比較インサイト：</strong>
+                                        </p>
+                                        {results.patternB.profit > results.patternA.profit ? (
+                                            <p className="text-green-700 font-semibold">
+                                                ✅ パターンB（手動ターボ）の方が{formatCurrency(
+                                                    results.patternB.profit - results.patternA.profit
+                                                )}多く稼げます！
+                                            </p>
+                                        ) : (
+                                            <p className="text-blue-700 font-semibold">
+                                                ✅ パターンA（自動複利）の方が{formatCurrency(
+                                                    results.patternA.profit - results.patternB.profit
+                                                )}多く稼げます！
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* フッター */}
+                        <div className="mt-12 text-center text-gray-600 text-sm">
+                            <p>
+                                ※ このシミュレーターは教育目的です。実際の運用結果は異なる場合があります。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<StakingSimulator />, document.getElementById('root'));
+    </script>
+</body>
+</html>
