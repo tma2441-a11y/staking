@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeFi ステーキング シミュレーター</title>
+    <title>WebKey ステーキング シミュレーター</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -25,17 +25,18 @@
 
         function StakingSimulator() {
             // 入力パラメータ
-            const [initialStaking, setInitialStaking] = useState(500000);
-            const [dailyUSDT, setDailyUSDT] = useState(2000);
-            const [days, setDays] = useState(365);
+            const [initialInvestment, setInitialInvestment] = useState(730.9262); // 投資金額
+            const [initialStaking, setInitialStaking] = useState(750.0517); // ステーキング残高
+            const [dailyUSDT, setDailyUSDT] = useState(2000); // 1日あたりの使用USDT
+            const [days, setDays] = useState(365); // シミュレーション日数
 
             // 固定日利（0.68%）
             const R_DAILY = 0.0068;
 
             // 計算結果
             const [results, setResults] = useState({
-                patternA: { staking: 0, turbo: 0, total: 0, usdt: 0, profit: 0 },
-                patternB: { staking: 0, turbo: 0, total: 0, usdt: 0, profit: 0 },
+                patternA: { holding: 0, staking: 0, turbo: 0, total: 0, usdt: 0, profit: 0 },
+                patternB: { holding: 0, staking: 0, turbo: 0, total: 0, usdt: 0, profit: 0 },
                 chartData: { labels: [], dataA: [], dataB: [] }
             });
 
@@ -43,71 +44,87 @@
             const chartInstance = useRef(null);
 
             // 計算ロジック
-            const calculateSimulation = (S_init, U_daily, Days) => {
-                // パターンA：完全放置（自動複利）
-                let S_A = S_init;
+            const calculateSimulation = (initialInv, initialStak, U_daily, Days) => {
+                // パターンA：完全放置（利息は放置・ターボプールに蓄積）
+                let holding_A = initialInv; // 手持ち金（常に初期投資額）
+                let staking_A = initialStak; // ステーキング残高（複利で増える）
+                let turbo_A = 0; // ターボプール（利息が蓄積、複利なし）
                 const chartLabelsA = [];
                 const chartDataA = [];
 
                 for (let t = 0; t <= Days; t++) {
                     if (t === 0) {
                         chartLabelsA.push(t);
-                        chartDataA.push(S_init);
+                        chartDataA.push(initialInv + initialStak);
                     } else {
-                        S_A = S_A * (1 + R_DAILY);
+                        // 毎日の利息発生
+                        const interest = staking_A * R_DAILY;
+                        // 利息はターボプールに蓄積（複利なし）
+                        turbo_A += interest;
+                        // ステーキング残高は複利で増える
+                        staking_A = staking_A * (1 + R_DAILY);
+
+                        // チャート用（同じペースで記録）
                         if (t % Math.max(1, Math.floor(Days / 100)) === 0 || t === Days) {
                             chartLabelsA.push(t);
-                            chartDataA.push(Math.round(S_A));
+                            chartDataA.push(Math.round(holding_A + staking_A + turbo_A));
                         }
                     }
                 }
 
-                const profitA = S_A - S_init;
+                const total_A = holding_A + staking_A + turbo_A;
+                const profit_A = total_A - initialInv;
 
-                // パターンB：毎日利息受取＋USDT再投資（ターボ）
-                let S_B = S_init;
-                let P_B = 0; // ターボプール
-                let usdt_used = 0;
+                // パターンB：毎日ターボ実行（利息受け取り + USDT支払い）
+                let holding_B = initialInv; // 手持ち金（利息を受け取ると増える）
+                let staking_B = initialStak; // ステーキング残高（複利で増える）
+                let turbo_B = 0; // ターボプール
+                let usdt_used = 0; // 使用USDT累計
                 const chartDataB = [];
 
                 for (let t = 0; t <= Days; t++) {
                     if (t === 0) {
-                        chartDataB.push(S_init);
+                        chartDataB.push(initialInv + initialStak);
                     } else {
                         // ステップ1：利息発生
-                        const I = S_B * R_DAILY;
-                        // ステップ2：ターボプールに追加
-                        P_B += I;
-                        // ステップ3：ターボ実行（毎日U_daily分）
-                        if (P_B >= U_daily) {
-                            P_B -= U_daily;
-                            S_B += 2 * U_daily; // 利息U_daily + 支払ったUSDT U_daily
-                            usdt_used += U_daily;
+                        const interest = staking_B * R_DAILY;
+                        // ステップ2：ターボプールに利息を追加
+                        turbo_B += interest;
+                        // ステップ3：ステーキング残高は複利で増える
+                        staking_B = staking_B * (1 + R_DAILY);
+                        // ステップ4：毎日ターボ実行（U_daily分引き出す）
+                        if (turbo_B >= U_daily) {
+                            turbo_B -= U_daily; // ターボプールから引き出す
+                            holding_B += U_daily; // 手持ち金に追加（利息として受け取る）
+                            usdt_used += U_daily; // USDT使用カウント
                         }
+
                         // チャート用（同じペースで記録）
                         if (t % Math.max(1, Math.floor(Days / 100)) === 0 || t === Days) {
-                            chartDataB.push(Math.round(S_B + P_B));
+                            chartDataB.push(Math.round(holding_B + staking_B + turbo_B));
                         }
                     }
                 }
 
-                const totalB = S_B + P_B;
-                const profitB = totalB - S_init - usdt_used;
+                const total_B = holding_B + staking_B + turbo_B;
+                const profit_B = total_B - initialInv - usdt_used;
 
                 return {
                     patternA: {
-                        staking: Math.round(S_A),
-                        turbo: 0,
-                        total: Math.round(S_A),
+                        holding: Math.round(holding_A),
+                        staking: Math.round(staking_A),
+                        turbo: Math.round(turbo_A),
+                        total: Math.round(total_A),
                         usdt: 0,
-                        profit: Math.round(profitA)
+                        profit: Math.round(profit_A)
                     },
                     patternB: {
-                        staking: Math.round(S_B),
-                        turbo: Math.round(P_B),
-                        total: Math.round(totalB),
+                        holding: Math.round(holding_B),
+                        staking: Math.round(staking_B),
+                        turbo: Math.round(turbo_B),
+                        total: Math.round(total_B),
                         usdt: Math.round(usdt_used),
-                        profit: Math.round(profitB)
+                        profit: Math.round(profit_B)
                     },
                     chartData: {
                         labels: chartLabelsA,
@@ -119,9 +136,9 @@
 
             // 計算実行
             useEffect(() => {
-                const newResults = calculateSimulation(initialStaking, dailyUSDT, days);
+                const newResults = calculateSimulation(initialInvestment, initialStaking, dailyUSDT, days);
                 setResults(newResults);
-            }, [initialStaking, dailyUSDT, days]);
+            }, [initialInvestment, initialStaking, dailyUSDT, days]);
 
             // チャート描画
             useEffect(() => {
@@ -138,7 +155,7 @@
                             labels: results.chartData.labels,
                             datasets: [
                                 {
-                                    label: 'パターンA：自動複利',
+                                    label: 'パターンA：利息放置',
                                     data: results.chartData.dataA,
                                     borderColor: '#3b82f6',
                                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -149,7 +166,7 @@
                                     fill: true
                                 },
                                 {
-                                    label: 'パターンB：手動ターボ',
+                                    label: 'パターンB：毎日ターボ実行',
                                     data: results.chartData.dataB,
                                     borderColor: '#10b981',
                                     backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -176,7 +193,7 @@
                                 },
                                 title: {
                                     display: true,
-                                    text: '資産成長比較（横軸：経過日数、縦軸：実質総資産）',
+                                    text: '総資産成長比較（横軸：経過日数、縦軸：実質総資産）',
                                     font: { size: 14, weight: 'bold' }
                                 }
                             },
@@ -185,7 +202,7 @@
                                     beginAtZero: true,
                                     ticks: {
                                         callback: function(value) {
-                                            return '¥' + value.toLocaleString();
+                                            return value.toLocaleString();
                                         },
                                         font: { size: 10 }
                                     },
@@ -213,20 +230,20 @@
                 };
             }, [results.chartData]);
 
-            const formatCurrency = (value) => {
-                return '¥' + Math.round(value).toLocaleString();
+            const formatNumber = (value) => {
+                return Math.round(value).toLocaleString();
             };
 
             return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+                <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-6">
                     <div className="max-w-7xl mx-auto">
                         {/* ヘッダー */}
                         <div className="mb-8">
                             <h1 className="text-4xl font-bold text-gray-800 mb-2">
-                                🚀 DeFi ステーキング シミュレーター
+                                🚀 WebKey ステーキング シミュレーター
                             </h1>
                             <p className="text-gray-600">
-                                「自動複利」vs「手動ターボ」の運用パターン比較 | 日利：0.68%（固定）
+                                「利息放置」vs「毎日ターボ実行」の運用パターン比較 | 日利：0.68%（複利）
                             </p>
                         </div>
 
@@ -239,23 +256,51 @@
                                     </h2>
 
                                     {/* 日利表示（固定） */}
-                                    <div className="mb-6 p-4 bg-blue-100 border-l-4 border-blue-500 rounded">
+                                    <div className="mb-6 p-4 bg-purple-100 border-l-4 border-purple-500 rounded">
                                         <p className="text-sm font-semibold text-gray-700">📌 ステーキング日利</p>
-                                        <p className="text-2xl font-bold text-blue-600 mt-2">0.68%</p>
+                                        <p className="text-2xl font-bold text-purple-600 mt-2">0.68%</p>
                                         <p className="text-xs text-gray-600 mt-1">固定値（複利計算）</p>
                                     </div>
 
-                                    {/* 初期ステーキング額 */}
+                                    {/* 初期投資金額（手持ち） */}
                                     <div className="mb-6">
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            初期ステーキング額
+                                            初期投資金額（手持ち）
                                         </label>
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="range"
-                                                min="100000"
-                                                max="2000000"
-                                                step="10000"
+                                                min="100"
+                                                max="5000"
+                                                step="10"
+                                                value={initialInvestment}
+                                                onChange={(e) => setInitialInvestment(Number(e.target.value))}
+                                                className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                        </div>
+                                        <input
+                                            type="number"
+                                            value={initialInvestment}
+                                            onChange={(e) => setInitialInvestment(Number(e.target.value))}
+                                            step="0.0001"
+                                            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-right text-lg font-semibold"
+                                        />
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            {formatNumber(initialInvestment)}
+                                        </p>
+                                    </div>
+
+                                    {/* 初期ステーキング残高 */}
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            初期ステーキング残高
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="range"
+                                                min="100"
+                                                max="5000"
+                                                step="10"
                                                 value={initialStaking}
                                                 onChange={(e) => setInitialStaking(Number(e.target.value))}
                                                 className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
@@ -265,10 +310,11 @@
                                             type="number"
                                             value={initialStaking}
                                             onChange={(e) => setInitialStaking(Number(e.target.value))}
+                                            step="0.0001"
                                             className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-right text-lg font-semibold"
                                         />
                                         <p className="text-sm text-gray-500 mt-1">
-                                            {formatCurrency(initialStaking)}
+                                            {formatNumber(initialStaking)}
                                         </p>
                                     </div>
 
@@ -295,7 +341,7 @@
                                             className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-right text-lg font-semibold"
                                         />
                                         <p className="text-sm text-gray-500 mt-1">
-                                            {formatCurrency(dailyUSDT)} / 日
+                                            {formatNumber(dailyUSDT)} / 日
                                         </p>
                                     </div>
 
@@ -331,11 +377,12 @@
                                         <p className="text-sm font-semibold text-gray-700 mb-3">クイックプリセット</p>
                                         <button
                                             onClick={() => {
-                                                setInitialStaking(500000);
+                                                setInitialInvestment(730.9262);
+                                                setInitialStaking(750.0517);
                                                 setDailyUSDT(2000);
                                                 setDays(365);
                                             }}
-                                            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition"
+                                            className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition"
                                         >
                                             デフォルトに戻す
                                         </button>
@@ -367,14 +414,14 @@
                                                         パターンA
                                                         <br />
                                                         <span className="text-xs text-gray-500">
-                                                            （自動複利）
+                                                            （利息放置）
                                                         </span>
                                                     </th>
                                                     <th className="px-4 py-3 text-right font-bold text-green-600">
                                                         パターンB
                                                         <br />
                                                         <span className="text-xs text-gray-500">
-                                                            （手動ターボ）
+                                                            （毎日ターボ）
                                                         </span>
                                                     </th>
                                                     <th className="px-4 py-3 text-right font-bold text-gray-700">
@@ -385,16 +432,32 @@
                                             <tbody>
                                                 <tr className="border-b border-gray-200 hover:bg-gray-50">
                                                     <td className="px-4 py-3 font-semibold text-gray-700">
+                                                        手持ち金
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-blue-600 font-semibold">
+                                                        {formatNumber(results.patternA.holding)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-green-600 font-semibold">
+                                                        {formatNumber(results.patternB.holding)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-gray-700 font-semibold">
+                                                        {formatNumber(
+                                                            results.patternB.holding - results.patternA.holding
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                <tr className="border-b border-gray-200 hover:bg-gray-50">
+                                                    <td className="px-4 py-3 font-semibold text-gray-700">
                                                         ステーキング残高
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-blue-600 font-semibold">
-                                                        {formatCurrency(results.patternA.staking)}
+                                                        {formatNumber(results.patternA.staking)}
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-green-600 font-semibold">
-                                                        {formatCurrency(results.patternB.staking)}
+                                                        {formatNumber(results.patternB.staking)}
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-gray-700 font-semibold">
-                                                        {formatCurrency(
+                                                        {formatNumber(
                                                             results.patternB.staking - results.patternA.staking
                                                         )}
                                                     </td>
@@ -404,13 +467,13 @@
                                                         ターボプール残分
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-blue-600 font-semibold">
-                                                        {formatCurrency(results.patternA.turbo)}
+                                                        {formatNumber(results.patternA.turbo)}
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-green-600 font-semibold">
-                                                        {formatCurrency(results.patternB.turbo)}
+                                                        {formatNumber(results.patternB.turbo)}
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-gray-700 font-semibold">
-                                                        {formatCurrency(results.patternB.turbo - results.patternA.turbo)}
+                                                        {formatNumber(results.patternB.turbo - results.patternA.turbo)}
                                                     </td>
                                                 </tr>
                                                 <tr className="border-b border-gray-200 bg-yellow-50 hover:bg-yellow-100">
@@ -418,13 +481,13 @@
                                                         実質総資産
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-blue-700 font-bold text-lg">
-                                                        {formatCurrency(results.patternA.total)}
+                                                        {formatNumber(results.patternA.total)}
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-green-700 font-bold text-lg">
-                                                        {formatCurrency(results.patternB.total)}
+                                                        {formatNumber(results.patternB.total)}
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-gray-800 font-bold text-lg">
-                                                        {formatCurrency(
+                                                        {formatNumber(
                                                             results.patternB.total - results.patternA.total
                                                         )}
                                                     </td>
@@ -434,16 +497,16 @@
                                                         使用USDT累計
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-blue-600 font-semibold">
-                                                        {formatCurrency(results.patternA.usdt)}
+                                                        {formatNumber(results.patternA.usdt)}
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-green-600 font-semibold">
-                                                        {formatCurrency(results.patternB.usdt)}
+                                                        {formatNumber(results.patternB.usdt)}
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-red-600 font-semibold">
-                                                        {formatCurrency(-(results.patternB.usdt - results.patternA.usdt))}
+                                                        {formatNumber(-(results.patternB.usdt - results.patternA.usdt))}
                                                     </td>
                                                 </tr>
-                                                <tr className="bg-blue-50 hover:bg-blue-100">
+                                                <tr className="bg-purple-50 hover:bg-purple-100">
                                                     <td className="px-4 py-3 font-bold text-gray-800">
                                                         純利益
                                                     </td>
@@ -454,7 +517,7 @@
                                                                 : 'text-red-600'
                                                         }`}
                                                     >
-                                                        {formatCurrency(results.patternA.profit)}
+                                                        {formatNumber(results.patternA.profit)}
                                                     </td>
                                                     <td
                                                         className={`px-4 py-3 text-right font-bold text-lg ${
@@ -463,7 +526,7 @@
                                                                 : 'text-red-600'
                                                         }`}
                                                     >
-                                                        {formatCurrency(results.patternB.profit)}
+                                                        {formatNumber(results.patternB.profit)}
                                                     </td>
                                                     <td
                                                         className={`px-4 py-3 text-right font-bold text-lg ${
@@ -472,7 +535,7 @@
                                                                 : 'text-red-600'
                                                         }`}
                                                     >
-                                                        {formatCurrency(
+                                                        {formatNumber(
                                                             results.patternB.profit - results.patternA.profit
                                                         )}
                                                     </td>
@@ -488,17 +551,26 @@
                                         </p>
                                         {results.patternB.profit > results.patternA.profit ? (
                                             <p className="text-green-700 font-semibold">
-                                                ✅ パターンB（手動ターボ）の方が{formatCurrency(
+                                                ✅ パターンB（毎日ターボ）の方が{formatNumber(
                                                     results.patternB.profit - results.patternA.profit
                                                 )}多く稼げます！
                                             </p>
                                         ) : (
                                             <p className="text-blue-700 font-semibold">
-                                                ✅ パターンA（自動複利）の方が{formatCurrency(
+                                                ✅ パターンA（利息放置）の方が{formatNumber(
                                                     results.patternA.profit - results.patternB.profit
                                                 )}多く稼げます！
                                             </p>
                                         )}
+                                    </div>
+
+                                    {/* 詳細説明 */}
+                                    <div className="mt-6 pt-6 border-t border-gray-200 text-xs text-gray-600 space-y-2">
+                                        <p><strong>📌 計算方法：</strong></p>
+                                        <p>• <strong>手持ち金</strong>：常に取り出し可能（パターンBでターボ実行時に増加）</p>
+                                        <p>• <strong>ステーキング残高</strong>：日利0.68%の複利で毎日増加</p>
+                                        <p>• <strong>ターボプール</strong>：毎日の利息が蓄積される場所（複利なし）</p>
+                                        <p>• <strong>純利益</strong>：総資産 − 初期投資額 − 使用USDT</p>
                                     </div>
                                 </div>
                             </div>
