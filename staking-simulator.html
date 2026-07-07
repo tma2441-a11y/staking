@@ -44,69 +44,68 @@
 
             // 計算ロジック
             const calculateSimulation = (inv, U_daily, Days) => {
-                // パターンA：放置（ブロック報酬を受け取らない）
+                // パターンA：放置（複利で成長）
                 let investment_A = inv;
                 let blockReward_A = 0; // ブロック報酬
-                let turbo_A = 0; // ターボプール
-                let staking_A = inv; // ステーキング残高
+                let turbo_A = 0; // ターボプール（常に0）
+                let staking_A = inv; // ステーキング残高 = 投資金額 + ブロック報酬
                 const chartLabelsA = [];
                 const chartDataA = [];
 
                 for (let t = 0; t <= Days; t++) {
                     if (t === 0) {
                         chartLabelsA.push(t);
-                        chartDataA.push(staking_A + turbo_A);
+                        // 総資産 = ステーキング残高 + 手持ち金
+                        chartDataA.push(Math.round((staking_A + investment_A) * 10000) / 10000);
                     } else {
-                        // 毎日：ブロック報酬 += 元金 × 日利
-                        blockReward_A += investment_A * R_DAILY;
+                        // 毎日：ブロック報酬 += ステーキング残高 × 日利（複利）
+                        blockReward_A += staking_A * R_DAILY;
                         // ステーキング残高 = 投資金額 + ブロック報酬
                         staking_A = investment_A + blockReward_A;
 
-                        // チャート用（同じペースで記録）
+                        // チャート用
                         if (t % Math.max(1, Math.floor(Days / 100)) === 0 || t === Days) {
                             chartLabelsA.push(t);
-                            chartDataA.push(Math.round(staking_A + turbo_A));
+                            chartDataA.push(Math.round((staking_A + investment_A) * 10000) / 10000);
                         }
                     }
                 }
 
                 const holding_A = investment_A;
-                const total_A = staking_A + turbo_A;
-                const profit_A = total_A - investment_A;
+                const total_A = staking_A + holding_A;
+                const profit_A = (staking_A - investment_A); // ブロック報酬がすべてステーキングに含まれている
 
-                // パターンB：毎日「受け取る」を実行
+                // パターンB：毎日「受け取る」を実行（複利なし）
                 let investment_B = inv;
                 let blockReward_B = 0;
-                let turbo_B = 0;
-                let staking_B = inv;
+                let turbo_B = 0; // ターボプール
+                let staking_B = inv; // ステーキング残高 = 投資金額
                 let holding_B = inv; // 手持ち金（利息を受け取ると増える）
                 let usdt_used = 0;
                 const chartDataB = [];
 
                 for (let t = 0; t <= Days; t++) {
                     if (t === 0) {
-                        chartDataB.push(holding_B + staking_B + turbo_B);
+                        chartDataB.push(Math.round((holding_B + staking_B + turbo_B) * 10000) / 10000);
                     } else {
-                        // ステップ1：毎日ブロック報酬を追加（元金に対して日利）
-                        blockReward_B += investment_B * R_DAILY;
-                        // ステップ2：ステーキング残高を更新
-                        staking_B = investment_B + blockReward_B;
-
-                        // ステップ3：毎日「受け取る」を実行
+                        // ステップ1：毎日ブロック報酬を追加（元金のみに対して）
+                        blockReward_B = investment_B * R_DAILY;
+                        
+                        // ステップ2：「受け取る」を実行
                         turbo_B += blockReward_B;
                         blockReward_B = 0;
                         staking_B = investment_B; // ブロック報酬が0になるのでステーキング残高 = 元金
 
-                        // ステップ4：ターボプールから USDT を支払い利息を現金化
+                        // ステップ3：ターボプールから USDT を支払い利息を現金化
                         if (turbo_B >= U_daily) {
                             turbo_B -= U_daily;
                             holding_B += U_daily;
                             usdt_used += U_daily;
                         }
 
-                        // チャート用（同じペースで記録）
+                        // チャート用
                         if (t % Math.max(1, Math.floor(Days / 100)) === 0 || t === Days) {
-                            chartDataB.push(Math.round(holding_B + staking_B + turbo_B));
+                            chartDataB.push(Math.round((holding_B + staking_B + turbo_B) * 10000) / 10000);
                         }
                     }
                 }
@@ -162,7 +161,7 @@
                             labels: results.chartData.labels,
                             datasets: [
                                 {
-                                    label: 'パターンA：ブロック報酬を放置',
+                                    label: 'パターンA：報酬を放置（複利）',
                                     data: results.chartData.dataA,
                                     borderColor: '#3b82f6',
                                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -173,7 +172,7 @@
                                     fill: true
                                 },
                                 {
-                                    label: 'パターンB：毎日「受け取る」実行',
+                                    label: 'パターンB：毎日「受け取る」（複利なし）',
                                     data: results.chartData.dataB,
                                     borderColor: '#10b981',
                                     backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -253,7 +252,7 @@
                                 🚀 WebKey ステーキング シミュレーター
                             </h1>
                             <p className="text-gray-600">
-                                「ブロック報酬を放置」vs「毎日受け取る」の運用パターン比較 | 日利：0.68%（元金ベース）
+                                「ブロック報酬を放置」vs「毎日受け取る」の運用パターン比較 | 日利：0.68%
                             </p>
                         </div>
 
@@ -269,13 +268,13 @@
                                     <div className="mb-6 p-4 bg-purple-100 border-l-4 border-purple-500 rounded">
                                         <p className="text-sm font-semibold text-gray-700">📌 ステーキング日利</p>
                                         <p className="text-2xl font-bold text-purple-600 mt-2">0.68%</p>
-                                        <p className="text-xs text-gray-600 mt-1">元金ベース（毎日計算）</p>
+                                        <p className="text-xs text-gray-600 mt-1">毎日計算</p>
                                     </div>
 
                                     {/* 投資金額（元金） */}
                                     <div className="mb-6">
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            投資金額（元金・手持ち）
+                                            投資金額（元金）
                                         </label>
                                         <div className="flex items-center gap-2">
                                             <input
@@ -395,7 +394,7 @@
                                                         パターンA
                                                         <br />
                                                         <span className="text-xs text-gray-500">
-                                                            （報酬放置）
+                                                            （報酬放置・複利）
                                                         </span>
                                                     </th>
                                                     <th className="px-4 py-3 text-right font-bold text-green-600">
@@ -499,7 +498,7 @@
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-blue-700 font-bold text-lg">
                                                         {formatNumber(
-                                                            results.patternA.staking + results.patternA.turbo,
+                                                            results.patternA.staking + results.patternA.holding,
                                                             4
                                                         )}
                                                     </td>
@@ -512,7 +511,7 @@
                                                     <td className="px-4 py-3 text-right text-gray-800 font-bold text-lg">
                                                         {formatNumber(
                                                             (results.patternB.holding + results.patternB.staking + results.patternB.turbo) -
-                                                            (results.patternA.staking + results.patternA.turbo),
+                                                            (results.patternA.staking + results.patternA.holding),
                                                             4
                                                         )}
                                                     </td>
@@ -575,17 +574,17 @@
                                         <p className="text-sm text-gray-600 mb-3">
                                             <strong>💡 比較インサイト：</strong>
                                         </p>
-                                        {results.patternB.profit > results.patternA.profit ? (
-                                            <p className="text-green-700 font-semibold">
-                                                ✅ パターンB（毎日「受け取る」）の方が{formatNumber(
-                                                    results.patternB.profit - results.patternA.profit,
-                                                    4
-                                                )}多く稼げます！
-                                            </p>
-                                        ) : (
+                                        {results.patternA.profit > results.patternB.profit ? (
                                             <p className="text-blue-700 font-semibold">
                                                 ✅ パターンA（報酬を放置）の方が{formatNumber(
                                                     results.patternA.profit - results.patternB.profit,
+                                                    4
+                                                )}多く稼げます！（複利の力）
+                                            </p>
+                                        ) : (
+                                            <p className="text-green-700 font-semibold">
+                                                ✅ パターンB（毎日受け取る）の方が{formatNumber(
+                                                    results.patternB.profit - results.patternA.profit,
                                                     4
                                                 )}多く稼げます！
                                             </p>
@@ -595,11 +594,10 @@
                                     {/* 詳細説明 */}
                                     <div className="mt-6 pt-6 border-t border-gray-200 text-xs text-gray-600 space-y-2">
                                         <p><strong>📌 計算方法：</strong></p>
-                                        <p>• <strong>投資金額</strong>：手持ちの元金（常に一定、いつでも取出可能）</p>
+                                        <p>• <strong>パターンA（放置・複利）</strong>：ブロック報酬が毎日蓄積 → ステーキング残高が増える → 次の日の利息も増える（複利効果）</p>
+                                        <p>• <strong>パターンB（毎日受取）</strong>：ブロック報酬は元金に対してのみ発生 → すぐにターボプールに移動 → ターボプールから USDT を支払って現金化</p>
                                         <p>• <strong>ステーキング残高</strong> = 投資金額 + ブロック報酬</p>
-                                        <p>• <strong>ブロック報酬</strong> ：毎日「投資金額 × 0.68%」が加算される（元金ベース）</p>
-                                        <p>• <strong>パターンA</strong>：ブロック報酬を受け取らない → 報酬が蓄積、ステーキング残高が増える</p>
-                                        <p>• <strong>パターンB</strong>：毎日「受け取る」を実行 → ブロック報酬がターボプールに移動、ステーキング残高は元金のまま、USDT支払い後に現金化</p>
+                                        <p>• <strong>手持ち金</strong>：ターボプールから USDT を支払って初めて引き出される</p>
                                         <p>• <strong>純利益</strong>：総資産 − 初期投資額 − 使用USDT</p>
                                     </div>
                                 </div>
