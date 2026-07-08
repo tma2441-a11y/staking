@@ -3,619 +3,1152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebKey ステーキング シミュレーター</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>人生バラ色計画 - WKEY / DAO2 人生設計シミュレーター</title>
     <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --card-bg: #ffffff;
+            --primary-blue: #1e40af;
+            --secondary-blue: #3b82f6;
+            --accent-orange: #f59e0b;
+            --danger: #ef4444;
+            --success: #10b981;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-                sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        /* 視認性の高いピンク系グラデーションロゴデザイン */
+        .header h1 {
+            margin: 0;
+            font-size: 2.4rem;
+            font-weight: 900;
+            letter-spacing: 1.5px;
+            /* WebKeyのテーマカラーに寄せた鮮やかなピンク〜マゼンタ */
+            background: linear-gradient(135deg, #f43f5e 0%, #ec4899 50%, #d946ef 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            /* text-shadowではなくdrop-shadowを使うことでグラデーション文字をくっきり浮き立たせる */
+            filter: drop-shadow(0px 4px 8px rgba(236, 72, 153, 0.25));
+            display: inline-block;
+        }
+
+        .header h1 span {
+            display: block;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-top: 6px;
+            letter-spacing: 0;
+            -webkit-text-fill-color: var(--text-muted);
+            color: var(--text-muted);
+            filter: none; /* サブタイトルには影をかけない */
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+
+        /* タブメニュー */
+        .tab-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            background: #e2e8f0;
+            padding: 6px;
+            border-radius: 12px;
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+        }
+
+        .tab-btn {
+            flex: 1 1 45%;
+            border: none;
+            background: transparent;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .tab-btn.active {
+            background: var(--card-bg);
+            color: var(--primary-blue);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+
+        .tab-btn:not(.active):hover {
+            color: var(--text-main);
+        }
+
+        .tab-panel {
+            display: none;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .tab-panel.active {
+            display: flex;
+        }
+
+        /* 入力エリア */
+        .input-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-top: 5px solid var(--primary-blue);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+        }
+
+        .input-group label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .auto-badge {
+            font-size: 0.65rem;
+            background: #dcfce7;
+            color: #166534;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #bbf7d0;
+        }
+
+        .input-group input {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: var(--secondary-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            background: #ffffff;
+        }
+
+        .fee-note {
+            grid-column: 1 / -1;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+            padding: 10px 14px;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+
+        /* 結果エリア */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .result-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-45 { border-top: 5px solid var(--secondary-blue); }
+        .card-10 { border-top: 5px solid var(--accent-orange); }
+        .card-turbo { border-top: 5px solid var(--secondary-blue); }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--primary-blue);
+            margin: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-10 .card-title { color: #d97706; }
+
+        .badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #e2e8f0;
+            color: var(--text-main);
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-row:last-child { border-bottom: none; }
+        .data-label { font-size: 0.9rem; color: var(--text-muted); font-weight: 600; }
+        .data-value { font-size: 1.05rem; font-weight: 700; text-align: right; }
+        .sub-value { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
+
+        .highlight-month { color: #d97706; font-size: 1.15rem; font-weight: 800; }
+        .highlight-value { font-size: 1.4rem; font-weight: 800; }
+
+        .highlight-row {
+            background: #eff6ff;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #bfdbfe;
+        }
+
+        .highlight-row-success {
+            background: #f0fdf4;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #bbf7d0;
+        }
+
+        .profit { color: var(--success); }
+        .loss { color: var(--danger); }
+        .accent { color: var(--secondary-blue); }
+        .accent-orange { color: var(--accent-orange); }
+
+        .summary-text {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+            background: #f8fafc;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .summary-text strong {
+            color: var(--text-main);
+        }
+
+        /* 新ルール・注意事項セクション */
+        .rules-section {
+            margin-top: 5px;
+        }
+
+        .rules-title {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .rule-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .rule-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-left: 5px solid var(--secondary-blue);
+            border-radius: 12px;
+            padding: 20px 25px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .rule-card.border-danger {
+            border-left-color: var(--danger);
+        }
+
+        .rule-card-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            margin: 0 0 10px 0;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .text-danger {
+            color: var(--danger);
+        }
+
+        .rule-desc {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin: 0 0 12px 0;
+            line-height: 1.5;
+        }
+
+        .time-slots {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .time-slots span {
+            background: #eff6ff;
+            color: var(--primary-blue);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            border: 1px solid #bfdbfe;
+        }
+
+        .rule-note {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 0;
+            border: 1px solid var(--border);
+            line-height: 1.5;
+        }
+
+        .rule-list {
+            margin: 0;
+            padding-left: 20px;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .rule-list li {
+            margin-bottom: 6px;
+        }
+
+        .rule-list li strong {
+            color: var(--text-main);
+        }
+
+        @media (max-width: 480px) {
+            .tab-btn { font-size: 0.8rem; padding: 10px 8px; }
+        }
+
+        /* ===== 強化版 .clickable ===== */
+        .clickable {
+          position: relative;
+          cursor: pointer;
+          user-select: none;
+          transition: transform 200ms cubic-bezier(.2,.9,.2,1), box-shadow 200ms cubic-bezier(.2,.9,.2,1);
+          will-change: transform, box-shadow;
+        }
+        .clickable:hover,
+        .clickable:focus {
+          transform: translateY(-6px) scale(1.005);
+          box-shadow: 0 18px 40px rgba(14,30,80,0.08), 0 6px 18px rgba(14,30,80,0.04);
+          z-index: 5;
+        }
+        .clickable::before {
+          content: "";
+          position: absolute;
+          inset: -6px;
+          border-radius: 8px;
+          box-shadow: 0 0 0 0 rgba(59,130,246,0.18);
+          opacity: 0;
+          transition: opacity 220ms ease, box-shadow 220ms ease;
+          pointer-events: none;
+        }
+        .clickable:hover::before,
+        .clickable:focus::before {
+          opacity: 1;
+          box-shadow: 0 0 18px 6px rgba(59,130,246,0.06);
+        }
+        .clickable::after {
+          content: attr(data-tooltip);
+          position: absolute;
+          right: 12px;
+          top: -32px;
+          background: rgba(2,6,23,0.92);
+          color: #fff;
+          font-size: 12px;
+          padding: 6px 8px;
+          border-radius: 8px;
+          opacity: 0;
+          transform: translateY(6px) scale(0.98);
+          transition: opacity 180ms ease, transform 180ms ease;
+          white-space: nowrap;
+          pointer-events: none;
+          z-index: 6;
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .clickable:hover::after,
+          .clickable:focus::after {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .click-press {
+          transition: transform 140ms cubic-bezier(.2,.9,.2,1);
+          transform: translateY(2px) scale(0.997);
+          box-shadow: 0 6px 14px rgba(14,30,80,0.06) !important;
+        }
+        .toast {
+          position: fixed;
+          right: 16px;
+          bottom: 20px;
+          background: #0f172a;
+          color: #fff;
+          padding: 10px 14px;
+          border-radius: 10px;
+          box-shadow: 0 8px 30px rgba(2,6,23,0.3);
+          font-weight: 700;
+          font-size: 0.95rem;
+          opacity: 0;
+          pointer-events: none;
+          transform: translateY(8px);
+          transition: opacity 220ms ease, transform 220ms ease;
+          z-index: 9999;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        .field-highlight {
+          animation: fieldFlash 1200ms ease;
+        }
+        @keyframes fieldFlash {
+          0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.25); }
+          30% { box-shadow: 0 0 0 8px rgba(59,130,246,0.12); }
+          100% { box-shadow: none; }
         }
     </style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+    <div class="app-container">
+        <div class="header">
+            <h1>人生バラ色計画 🌟<span>WKEY / DAO2 人生設計シミュレーター</span></h1>
+            <p id="page-subtitle">※DAO2をステーキングした場合の、年利ベースでの複利利息シミュレーションです。</p>
+        </div>
 
-        function StakingSimulator() {
-            // 入力パラメータ
-            const [investment, setInvestment] = useState(730.9262); // 投資金額（元金）
-            const [dailyUSDT, setDailyUSDT] = useState(2000); // 1日あたりの使用USDT
-            const [days, setDays] = useState(365); // シミュレーション日数
+        <!-- タブメニュー -->
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="staking">🌱 ステーキングシミュレーター</button>
+            <button class="tab-btn" data-tab="legacy">💰 WBOシミュレーター</button>
+        </div>
 
-            // 固定日利（0.68%）
-            const R_DAILY = 0.0068;
+        <!-- ============ タブ①：ステーキングシミュレーター ============ -->
+        <div class="tab-panel active" id="panel-staking">
+            <div class="input-card">
+                <div class="input-group">
+                    <label>ステーキング DAO2 枚数</label>
+                    <input type="number" id="inputStakeAmount" value="100" step="1">
+                </div>
+                <div class="input-group">
+                    <label>DAO2 現在価格 (USD)</label>
+                    <input type="number" id="inputStakePrice" value="1.517" step="0.001">
+                </div>
+                <div class="input-group">
+                    <label>年利 APY (%)</label>
+                    <input type="number" id="inputStakeApy" value="1489.979" step="0.001" min="0">
+                </div>
+                <div class="input-group">
+                    <label>ステーキング期間 (日)</label>
+                    <input type="number" id="inputStakeDays" value="365" step="1" min="1">
+                </div>
+                <div class="fee-note">
+                    ※年間利回り(APY)は既に複利計算後の年間成長倍率として扱い、経過日数分を指数按分して計算します（元本 × (1+年利)^(経過日数÷365)）。実際のアプリのリベース間隔(数時間〜5日ごとなど)に関わらず、年間利回りが同じであれば同じ結果になる計算方法です。
+                </div>
+            </div>
 
-            // 計算結果
-            const [results, setResults] = useState({
-                patternA: { investment: 0, staking: 0, blockReward: 0, turbo: 0, holding: 0, usdt: 0, profit: 0 },
-                patternB: { investment: 0, staking: 0, blockReward: 0, turbo: 0, holding: 0, usdt: 0, profit: 0 },
-                chartData: { labels: [], dataA: [], dataB: [] }
-            });
+            <div class="result-card card-turbo">
+                <h2 class="card-title">ステーキング結果</h2>
 
-            const chartRef = useRef(null);
-            const chartInstance = useRef(null);
+                <div class="data-row">
+                    <div class="data-label">当初の資産価値</div>
+                    <div class="data-value" id="out-stake-initial">$0</div>
+                </div>
+                <div class="data-row">
+                    <div class="data-label">1日あたりの利息</div>
+                    <div class="data-value" id="out-stake-daily">0 DAO2</div>
+                </div>
+                <div class="data-row">
+                    <div class="data-label">1か月後(30日)の利息合計</div>
+                    <div class="data-value" id="out-stake-month">0 DAO2</div>
+                </div>
+                <div class="data-row highlight-row">
+                    <div class="data-label" style="color:#1e40af;">期間終了時の保有DAO2枚数</div>
+                    <div class="data-value highlight-value clickable" id="out-stake-finaltokens" role="button" tabindex="0">0 DAO2</div>
+                </div>
+                <div class="data-row">
+                    <div class="data-label">期間終了時の資産価値<br><span class="sub-value">(価格は現在価格のまま試算)</span></div>
+                    <div class="data-value" id="out-stake-finalvalue">$0</div>
+                </div>
+                <div class="data-row highlight-row-success" style="border:none; margin-top:8px;">
+                    <div class="data-label" style="color:#166534;">増加額(利息分)</div>
+                    <div class="data-value highlight-value clickable" id="out-stake-gain" role="button" tabindex="0">$0</div>
+                </div>
 
-            // 計算ロジック
-            const calculateSimulation = (inv, U_daily, Days) => {
-                // パターンA：放置（複利で成長）
-                let investment_A = inv;
-                let blockReward_A = 0; // ブロック報酬
-                let turbo_A = 0; // ターボプール（常に0）
-                let staking_A = inv; // ステーキング残高 = 投資金額 + ブロック報酬
-                const chartLabelsA = [];
-                const chartDataA = [];
+                <div class="summary-text" id="out-stake-summary"></div>
+            </div>
 
-                for (let t = 0; t <= Days; t++) {
-                    if (t === 0) {
-                        chartLabelsA.push(t);
-                        // 総資産 = ステーキング残高 + 手持ち金
-                        chartDataA.push(Math.round((staking_A + investment_A) * 10000) / 10000);
-                    } else {
-                        // 毎日：ブロック報酬 += ステーキング残高 × 日利（複利）
-                        blockReward_A += staking_A * R_DAILY;
-                        // ステーキング残高 = 投資金額 + ブロック報酬
-                        staking_A = investment_A + blockReward_A;
+            <div class="result-card card-turbo">
+                <h2 class="card-title">保有DAO2枚数の推移 <span class="badge" id="stakeChartDaysLabel">30日間</span></h2>
+                <div id="stakeChartContainer" style="width:100%; overflow-x:auto;"></div>
+                <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--text-muted); font-weight:600;">
+                    <span id="stakeChartStartLabel">開始: 0 DAO2</span>
+                    <span id="stakeChartEndLabel">終了: 0 DAO2</span>
+                </div>
+            </div>
+        </div>
 
-                        // チャート用
-                        if (t % Math.max(1, Math.floor(Days / 100)) === 0 || t === Days) {
-                            chartLabelsA.push(t);
-                            chartDataA.push(Math.round((staking_A + investment_A) * 10000) / 10000);
-                        }
-                    }
-                }
+        <!-- ============ タブ②：WBOシミュレーター ============ -->
+        <div class="tab-panel" id="panel-legacy">
+            <!-- 入力エリア -->
+            <div class="input-card">
+                <div class="input-group">
+                    <label>保有 DAO2 枚数 <span class="auto-badge" id="dao2AmountAutoBadge" style="display:none;">自動計算✅</span></label>
+                    <input type="number" id="inputDao2Amount" value="" step="1" placeholder="例: 100">
+                </div>
+                <div class="input-group">
+                    <label>DAO2 現在価格 (USD) <span class="auto-badge" id="dao2PriceAutoBadge" style="display:none;">自動計算✅</span></label>
+                    <input type="number" id="inputDao2Price" value="1.517" step="0.001">
+                </div>
+                <div class="input-group">
+                    <label>投資・再投資額 (USDT) <span class="auto-badge" id="jpyAutoBadge" style="display:none;">自動計算✅</span></label>
+                    <input type="number" id="inputJPY" value="6250" step="1">
+                </div>
+                <div class="input-group">
+                    <label>WKEY 現在価格 (USD)</label>
+                    <input type="number" id="inputPrice" value="97.66" step="0.01">
+                </div>
+                <div class="input-group">
+                    <label>売却時取引手数料 (%)</label>
+                    <input type="number" id="inputFee" value="45" step="1" max="100" min="0">
+                </div>
+                <div class="fee-note">
+                    ※「保有DAO2枚数」「DAO2現在価格」「投資・再投資額(USDT)」は連動しています。3つのうち2つが分かっていれば、残り1つが自動で計算されます（DAO2枚数 × DAO2価格 = USDT）。直近に入力した2つが「既知の値」として扱われ、その前に入力していた項目が自動更新されます。<br>
+                    ※投資額(USDT)は、USDTの実勢価格(通常1.00付近ですが多少のペッグ変動があります)をリアルタイムで自動取得し、実際のUSD価値に換算したうえで計算しています。
+                </div>
+            </div>
 
-                const holding_A = investment_A;
-                const total_A = staking_A + holding_A;
-                const profit_A = (staking_A - investment_A); // ブロック報酬がすべてステーキングに含まれている
+            <!-- 結果カードエリア -->
+            <div class="results-grid">
+                <!-- パターン1: 45%割引 -->
+                <div class="result-card card-45">
+                    <h2 class="card-title">パターン① <span class="badge">約45% 割引</span></h2>
 
-                // パターンB：毎日「受け取る」を実行（複利なし）
-                let investment_B = inv;
-                let blockReward_B = 0;
-                let turbo_B = 0; // ターボプール
-                let staking_B = inv; // ステーキング残高 = 投資金額
-                let holding_B = inv; // 手持ち金（利息を受け取ると増える）
-                let usdt_used = 0;
-                const chartDataB = [];
-
-                for (let t = 0; t <= Days; t++) {
-                    if (t === 0) {
-                        chartDataB.push(Math.round((holding_B + staking_B + turbo_B) * 10000) / 10000);
-                    } else {
-                        // ステップ1：毎日ブロック報酬を追加（元金のみに対して）
-                        blockReward_B = investment_B * R_DAILY;
-                        
-                        // ステップ2：「受け取る」を実行
-                        turbo_B += blockReward_B;
-                        blockReward_B = 0;
-                        staking_B = investment_B; // ブロック報酬が0になるのでステーキング残高 = 元金
-
-                        // ステップ3：ターボプールから USDT を支払い利息を現金化
-                        if (turbo_B >= U_daily) {
-                            turbo_B -= U_daily;
-                            holding_B += U_daily;
-                            usdt_used += U_daily;
-                        }
-
-                        // チャート用
-                        if (t % Math.max(1, Math.floor(Days / 100)) === 0 || t === Days) {
-                            chartDataB.push(Math.round((holding_B + staking_B + turbo_B) * 10000) / 10000);
-                        }
-                    }
-                }
-
-                const total_B = holding_B + staking_B + turbo_B;
-                const profit_B = total_B - investment_B - usdt_used;
-
-                return {
-                    patternA: {
-                        investment: Math.round(investment_A * 10000) / 10000,
-                        staking: Math.round(staking_A * 10000) / 10000,
-                        blockReward: Math.round(blockReward_A * 10000) / 10000,
-                        turbo: Math.round(turbo_A * 10000) / 10000,
-                        holding: Math.round(holding_A * 10000) / 10000,
-                        usdt: 0,
-                        profit: Math.round(profit_A * 10000) / 10000
-                    },
-                    patternB: {
-                        investment: Math.round(investment_B * 10000) / 10000,
-                        staking: Math.round(staking_B * 10000) / 10000,
-                        blockReward: Math.round(blockReward_B * 10000) / 10000,
-                        turbo: Math.round(turbo_B * 10000) / 10000,
-                        holding: Math.round(holding_B * 10000) / 10000,
-                        usdt: Math.round(usdt_used),
-                        profit: Math.round(profit_B * 10000) / 10000
-                    },
-                    chartData: {
-                        labels: chartLabelsA,
-                        dataA: chartDataA,
-                        dataB: chartDataB
-                    }
-                };
-            };
-
-            // 計算実行
-            useEffect(() => {
-                const newResults = calculateSimulation(investment, dailyUSDT, days);
-                setResults(newResults);
-            }, [investment, dailyUSDT, days]);
-
-            // チャート描画
-            useEffect(() => {
-                if (chartRef.current && results.chartData.labels.length > 0) {
-                    const ctx = chartRef.current.getContext('2d');
-
-                    if (chartInstance.current) {
-                        chartInstance.current.destroy();
-                    }
-
-                    chartInstance.current = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: results.chartData.labels,
-                            datasets: [
-                                {
-                                    label: 'パターンA：報酬を放置（複利）',
-                                    data: results.chartData.dataA,
-                                    borderColor: '#3b82f6',
-                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                    tension: 0.3,
-                                    borderWidth: 2,
-                                    pointRadius: 0,
-                                    pointHoverRadius: 6,
-                                    fill: true
-                                },
-                                {
-                                    label: 'パターンB：毎日「受け取る」（複利なし）',
-                                    data: results.chartData.dataB,
-                                    borderColor: '#10b981',
-                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                    tension: 0.3,
-                                    borderWidth: 2,
-                                    pointRadius: 0,
-                                    pointHoverRadius: 6,
-                                    fill: true
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: true,
-                            plugins: {
-                                legend: {
-                                    display: true,
-                                    position: 'top',
-                                    labels: {
-                                        font: { size: 12, weight: 'bold' },
-                                        padding: 20,
-                                        usePointStyle: true
-                                    }
-                                },
-                                title: {
-                                    display: true,
-                                    text: '総資産成長比較（横軸：経過日数、縦軸：総資産額）',
-                                    font: { size: 14, weight: 'bold' }
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
-                                        callback: function(value) {
-                                            return value.toLocaleString();
-                                        },
-                                        font: { size: 10 }
-                                    },
-                                    grid: {
-                                        color: 'rgba(200, 200, 200, 0.1)'
-                                    }
-                                },
-                                x: {
-                                    ticks: {
-                                        font: { size: 10 }
-                                    },
-                                    grid: {
-                                        display: false
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-
-                return () => {
-                    if (chartInstance.current) {
-                        chartInstance.current.destroy();
-                    }
-                };
-            }, [results.chartData]);
-
-            const formatNumber = (value, decimals = 2) => {
-                return Number(value.toFixed(decimals)).toLocaleString('ja-JP', {
-                    minimumFractionDigits: decimals,
-                    maximumFractionDigits: decimals
-                });
-            };
-
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-6">
-                    <div className="max-w-7xl mx-auto">
-                        {/* ヘッダー */}
-                        <div className="mb-8">
-                            <h1 className="text-4xl font-bold text-gray-800 mb-2">
-                                🚀 WebKey ステーキング シミュレーター
-                            </h1>
-                            <p className="text-gray-600">
-                                「ブロック報酬を放置」vs「毎日受け取る」の運用パターン比較 | 日利：0.68%
-                            </p>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            {/* 左側：入力パネル */}
-                            <div className="lg:col-span-1">
-                                <div className="bg-white rounded-lg shadow-lg p-6 sticky top-6">
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                                        📊 パラメータ設定
-                                    </h2>
-
-                                    {/* 日利表示（固定） */}
-                                    <div className="mb-6 p-4 bg-purple-100 border-l-4 border-purple-500 rounded">
-                                        <p className="text-sm font-semibold text-gray-700">📌 ステーキング日利</p>
-                                        <p className="text-2xl font-bold text-purple-600 mt-2">0.68%</p>
-                                        <p className="text-xs text-gray-600 mt-1">毎日計算</p>
-                                    </div>
-
-                                    {/* 投資金額（元金） */}
-                                    <div className="mb-6">
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            投資金額（元金）
-                                        </label>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="range"
-                                                min="100"
-                                                max="5000"
-                                                step="0.1"
-                                                value={investment}
-                                                onChange={(e) => setInvestment(Number(e.target.value))}
-                                                className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
-                                            />
-                                        </div>
-                                        <input
-                                            type="number"
-                                            value={investment}
-                                            onChange={(e) => setInvestment(Number(e.target.value))}
-                                            step="0.0001"
-                                            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-right text-lg font-semibold"
-                                        />
-                                        <p className="text-sm text-gray-500 mt-1">
-                                            {formatNumber(investment, 4)}
-                                        </p>
-                                    </div>
-
-                                    {/* 1日あたりの使用USDT */}
-                                    <div className="mb-6">
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            1日あたりの使用USDT
-                                        </label>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="range"
-                                                min="0"
-                                                max="10000"
-                                                step="100"
-                                                value={dailyUSDT}
-                                                onChange={(e) => setDailyUSDT(Number(e.target.value))}
-                                                className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
-                                            />
-                                        </div>
-                                        <input
-                                            type="number"
-                                            value={dailyUSDT}
-                                            onChange={(e) => setDailyUSDT(Number(e.target.value))}
-                                            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-right text-lg font-semibold"
-                                        />
-                                        <p className="text-sm text-gray-500 mt-1">
-                                            {formatNumber(dailyUSDT, 0)} / 日
-                                        </p>
-                                    </div>
-
-                                    {/* シミュレーション日数 */}
-                                    <div className="mb-6">
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            シミュレーション日数
-                                        </label>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="range"
-                                                min="1"
-                                                max="730"
-                                                step="1"
-                                                value={days}
-                                                onChange={(e) => setDays(Number(e.target.value))}
-                                                className="flex-1 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
-                                            />
-                                        </div>
-                                        <input
-                                            type="number"
-                                            value={days}
-                                            onChange={(e) => setDays(Number(e.target.value))}
-                                            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-right text-lg font-semibold"
-                                        />
-                                        <p className="text-sm text-gray-500 mt-1">
-                                            {days} 日間のシミュレーション
-                                        </p>
-                                    </div>
-
-                                    {/* クイックプリセット */}
-                                    <div className="mt-8 pt-6 border-t border-gray-200">
-                                        <p className="text-sm font-semibold text-gray-700 mb-3">クイックプリセット</p>
-                                        <button
-                                            onClick={() => {
-                                                setInvestment(730.9262);
-                                                setDailyUSDT(2000);
-                                                setDays(365);
-                                            }}
-                                            className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition"
-                                        >
-                                            デフォルトに戻す
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* 右側：グラフと結果表 */}
-                            <div className="lg:col-span-2 space-y-8">
-                                {/* グラフ */}
-                                <div className="bg-white rounded-lg shadow-lg p-6">
-                                    <canvas ref={chartRef} style={{ maxHeight: '400px' }}></canvas>
-                                </div>
-
-                                {/* 比較表 */}
-                                <div className="bg-white rounded-lg shadow-lg p-6">
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                                        📈 結果比較
-                                    </h2>
-
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-sm">
-                                            <thead>
-                                                <tr className="bg-gray-100 border-b-2 border-gray-300">
-                                                    <th className="px-4 py-3 text-left font-bold text-gray-700">
-                                                        項目
-                                                    </th>
-                                                    <th className="px-4 py-3 text-right font-bold text-blue-600">
-                                                        パターンA
-                                                        <br />
-                                                        <span className="text-xs text-gray-500">
-                                                            （報酬放置・複利）
-                                                        </span>
-                                                    </th>
-                                                    <th className="px-4 py-3 text-right font-bold text-green-600">
-                                                        パターンB
-                                                        <br />
-                                                        <span className="text-xs text-gray-500">
-                                                            （毎日受取）
-                                                        </span>
-                                                    </th>
-                                                    <th className="px-4 py-3 text-right font-bold text-gray-700">
-                                                        差額
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr className="border-b border-gray-200 hover:bg-gray-50">
-                                                    <td className="px-4 py-3 font-semibold text-gray-700">
-                                                        投資金額
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-blue-600 font-semibold">
-                                                        {formatNumber(results.patternA.investment, 4)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-green-600 font-semibold">
-                                                        {formatNumber(results.patternB.investment, 4)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-gray-700 font-semibold">
-                                                        0
-                                                    </td>
-                                                </tr>
-                                                <tr className="border-b border-gray-200 hover:bg-gray-50">
-                                                    <td className="px-4 py-3 font-semibold text-gray-700">
-                                                        ステーキング残高
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-blue-600 font-semibold">
-                                                        {formatNumber(results.patternA.staking, 4)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-green-600 font-semibold">
-                                                        {formatNumber(results.patternB.staking, 4)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-gray-700 font-semibold">
-                                                        {formatNumber(
-                                                            results.patternB.staking - results.patternA.staking,
-                                                            4
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                                <tr className="border-b border-gray-200 hover:bg-gray-50">
-                                                    <td className="px-4 py-3 font-semibold text-gray-700">
-                                                        ブロック報酬
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-blue-600 font-semibold">
-                                                        {formatNumber(results.patternA.blockReward, 4)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-green-600 font-semibold">
-                                                        {formatNumber(results.patternB.blockReward, 4)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-gray-700 font-semibold">
-                                                        {formatNumber(
-                                                            results.patternB.blockReward - results.patternA.blockReward,
-                                                            4
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                                <tr className="border-b border-gray-200 hover:bg-gray-50">
-                                                    <td className="px-4 py-3 font-semibold text-gray-700">
-                                                        ターボプール
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-blue-600 font-semibold">
-                                                        {formatNumber(results.patternA.turbo, 4)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-green-600 font-semibold">
-                                                        {formatNumber(results.patternB.turbo, 4)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-gray-700 font-semibold">
-                                                        {formatNumber(
-                                                            results.patternB.turbo - results.patternA.turbo,
-                                                            4
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                                <tr className="border-b border-gray-200 hover:bg-gray-50">
-                                                    <td className="px-4 py-3 font-semibold text-gray-700">
-                                                        手持ち金（現金化分）
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-blue-600 font-semibold">
-                                                        {formatNumber(results.patternA.holding, 4)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-green-600 font-semibold">
-                                                        {formatNumber(results.patternB.holding, 4)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-gray-700 font-semibold">
-                                                        {formatNumber(
-                                                            results.patternB.holding - results.patternA.holding,
-                                                            4
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                                <tr className="border-b border-gray-200 bg-yellow-50 hover:bg-yellow-100">
-                                                    <td className="px-4 py-3 font-bold text-gray-800">
-                                                        総資産
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-blue-700 font-bold text-lg">
-                                                        {formatNumber(
-                                                            results.patternA.staking + results.patternA.holding,
-                                                            4
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-green-700 font-bold text-lg">
-                                                        {formatNumber(
-                                                            results.patternB.holding + results.patternB.staking + results.patternB.turbo,
-                                                            4
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-gray-800 font-bold text-lg">
-                                                        {formatNumber(
-                                                            (results.patternB.holding + results.patternB.staking + results.patternB.turbo) -
-                                                            (results.patternA.staking + results.patternA.holding),
-                                                            4
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                                <tr className="border-b border-gray-200 hover:bg-gray-50">
-                                                    <td className="px-4 py-3 font-semibold text-gray-700">
-                                                        使用USDT累計
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-blue-600 font-semibold">
-                                                        {formatNumber(results.patternA.usdt, 0)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-green-600 font-semibold">
-                                                        {formatNumber(results.patternB.usdt, 0)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-red-600 font-semibold">
-                                                        {formatNumber(-(results.patternB.usdt - results.patternA.usdt), 0)}
-                                                    </td>
-                                                </tr>
-                                                <tr className="bg-purple-50 hover:bg-purple-100">
-                                                    <td className="px-4 py-3 font-bold text-gray-800">
-                                                        純利益
-                                                    </td>
-                                                    <td
-                                                        className={`px-4 py-3 text-right font-bold text-lg ${
-                                                            results.patternA.profit >= 0
-                                                                ? 'text-blue-700'
-                                                                : 'text-red-600'
-                                                        }`}
-                                                    >
-                                                        {formatNumber(results.patternA.profit, 4)}
-                                                    </td>
-                                                    <td
-                                                        className={`px-4 py-3 text-right font-bold text-lg ${
-                                                            results.patternB.profit >= 0
-                                                                ? 'text-green-700'
-                                                                : 'text-red-600'
-                                                        }`}
-                                                    >
-                                                        {formatNumber(results.patternB.profit, 4)}
-                                                    </td>
-                                                    <td
-                                                        className={`px-4 py-3 text-right font-bold text-lg ${
-                                                            results.patternB.profit >= results.patternA.profit
-                                                                ? 'text-green-600'
-                                                                : 'text-red-600'
-                                                        }`}
-                                                    >
-                                                        {formatNumber(
-                                                            results.patternB.profit - results.patternA.profit,
-                                                            4
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    {/* インサイト */}
-                                    <div className="mt-6 pt-6 border-t border-gray-200">
-                                        <p className="text-sm text-gray-600 mb-3">
-                                            <strong>💡 比較インサイト：</strong>
-                                        </p>
-                                        {results.patternA.profit > results.patternB.profit ? (
-                                            <p className="text-blue-700 font-semibold">
-                                                ✅ パターンA（報酬を放置）の方が{formatNumber(
-                                                    results.patternA.profit - results.patternB.profit,
-                                                    4
-                                                )}多く稼げます！（複利の力）
-                                            </p>
-                                        ) : (
-                                            <p className="text-green-700 font-semibold">
-                                                ✅ パターンB（毎日受け取る）の方が{formatNumber(
-                                                    results.patternB.profit - results.patternA.profit,
-                                                    4
-                                                )}多く稼げます！
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* 詳細説明 */}
-                                    <div className="mt-6 pt-6 border-t border-gray-200 text-xs text-gray-600 space-y-2">
-                                        <p><strong>📌 計算方法：</strong></p>
-                                        <p>• <strong>パターンA（放置・複利）</strong>：ブロック報酬が毎日蓄積 → ステーキング残高が増える → 次の日の利息も増える（複利効果）</p>
-                                        <p>• <strong>パターンB（毎日受取）</strong>：ブロック報酬は元金に対してのみ発生 → すぐにターボプールに移動 → ターボプールから USDT を支払って現金化</p>
-                                        <p>• <strong>ステーキング残高</strong> = 投資金額 + ブロック報酬</p>
-                                        <p>• <strong>手持ち金</strong>：ターボプールから USDT を支払って初めて引き出される</p>
-                                        <p>• <strong>純利益</strong>：総資産 − 初期投資額 − 使用USDT</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* フッター */}
-                        <div className="mt-12 text-center text-gray-600 text-sm">
-                            <p>
-                                ※ このシミュレーターは教育目的です。実際の運用結果は異なる場合があります。
-                            </p>
-                        </div>
+                    <div class="data-row">
+                        <div class="data-label">取得予定 WKEY枚数</div>
+                        <div class="data-value accent" id="out45-tokens">0 WKEY</div>
+                    </div>
+                    <div class="data-row">
+                        <div class="data-label">購入直後の資産価値</div>
+                        <div class="data-value" id="out45-initial">$0</div>
+                    </div>
+                    <div class="data-row">
+                        <div class="data-label">毎日の手取り額<br><span style="font-size:0.75rem; font-weight:500;">(売却手数料引込後)</span></div>
+                        <div class="data-value" id="out45-daily">$0 /日</div>
+                    </div>
+                    <div class="data-row" style="background: #fffbeb; padding: 12px; border-radius: 8px; border: 1px solid #fef3c7;">
+                        <div class="data-label" style="color: #b45309;">1か月後(30日)の現金</div>
+                        <div class="data-value highlight-month" id="out45-month">$0</div>
+                    </div>
+                    <div class="data-row">
+                        <div class="data-label">380日後の現金合計</div>
+                        <div class="data-value highlight-value" id="out45-total">$0</div>
+                    </div>
+                    <div class="data-row" style="border:none; padding-top:10px;">
+                        <div class="data-label">最終的な損益</div>
+                        <div class="data-value highlight-value" id="out45-profit">$0</div>
                     </div>
                 </div>
-            );
+
+                <!-- パターン2: 10%割引 (ターボ) -->
+                <div class="result-card card-10">
+                    <h2 class="card-title">パターン② <span class="badge">ターボ 約10% 割引</span></h2>
+
+                    <div class="data-row">
+                        <div class="data-label">取得予定 WKEY枚数</div>
+                        <div class="data-value accent" id="out10-tokens" style="color:#d97706;">0 WKEY</div>
+                    </div>
+                    <div class="data-row">
+                        <div class="data-label">購入直後の資産価値</div>
+                        <div class="data-value" id="out10-initial">$0</div>
+                    </div>
+                    <div class="data-row">
+                        <div class="data-label">毎日の手取り額<br><span style="font-size:0.75rem; font-weight:500;">(売却手数料引込後)</span></div>
+                        <div class="data-value" id="out10-daily">$0 /日</div>
+                    </div>
+                    <div class="data-row" style="background: #fffbeb; padding: 12px; border-radius: 8px; border: 1px solid #fef3c7;">
+                        <div class="data-label" style="color: #b45309;">1か月後(30日)の現金</div>
+                        <div class="data-value highlight-month" id="out10-month">$0</div>
+                    </div>
+                    <div class="data-row">
+                        <div class="data-label">380日後の現金合計</div>
+                        <div class="data-value highlight-value" id="out10-total">$0</div>
+                    </div>
+                    <div class="data-row" style="border:none; padding-top:10px;">
+                        <div class="data-label">最終的な損益</div>
+                        <div class="data-value highlight-value" id="out10-profit">$0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 取引ルール・注意事項セクション -->
+            <div class="rules-section">
+                <h3 class="rules-title">⚠️ 重要：最新の取引ルールと管理制度</h3>
+
+                <div class="rule-group">
+                    <!-- ターボ割引ルール -->
+                    <div class="rule-card">
+                        <h4 class="rule-card-title">🚀 ターボ（利息受け取り）割引時間</h4>
+                        <p class="rule-desc">平日（月曜日～金曜日）の以下の時間帯は、ターボ取引手数料が <strong>10% → 5%</strong> に割引されます。</p>
+                        <div class="time-slots">
+                            <span>🕗 09:25 ～ 09:30（5分間）</span>
+                            <span>🌙 22:30 ～ 22:35（5分間）</span>
+                        </div>
+                        <p class="rule-note">※ターボとは：USDTを使用してDAO2の利息を受け取る作業です。<br>（例：100DAOの利息に対して40USDTを使用し、合計200DAOを受け取る）</p>
+                    </div>
+
+                    <!-- ブラックリスト管理ルール -->
+                    <div class="rule-card border-danger">
+                        <h4 class="rule-card-title text-danger">⛔ WKEY 売却ルール・要注意行為</h4>
+                        <p class="rule-desc">流動性と価格変動を守るため、以下の売却行為は大口売却行為とみなされ、ブラックリストや制限の対象となります。</p>
+                        <ul class="rule-list">
+                            <li>1回の売却数量が <strong>2 WKEY 以上</strong>（2 WKEY未満であること）</li>
+                            <li>1日の累計売却数量が <strong>5 WKEY 以上</strong>（1ウォレットあたり）</li>
+                            <li>各売却の間隔が <strong>20分未満</strong> の連続売却</li>
+                            <li>時間を満たしていても、<strong>同一数量の売却を連続</strong> して行う行為</li>
+                            <li>別ウォレットへ移転した後の売却による回避行為</li>
+                            <li>時間を空けずに <strong>売却 → すぐターボ → 再売却</strong> を繰り返す行為</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /* ===== 共通フォーマッタ ===== */
+        function formatUSDT(number) {
+            return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(number) + " USDT";
+        }
+        function formatWKEY(number) {
+            return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(number) + " WKEY";
+        }
+        function formatDAO2(number) {
+            return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(number) + " DAO2";
+        }
+        function formatUSD(number) {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(number);
         }
 
-        ReactDOM.render(<StakingSimulator />, document.getElementById('root'));
+        /* ===== USDT 現在のUSD価格のリアルタイム取得(画面表示なし、内部計算のみで使用) ===== */
+        let currentUsdtRate = 1.00;
+
+        async function fetchUsdtRate() {
+            try {
+                const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=usd');
+                const data = await response.json();
+                currentUsdtRate = data.tether.usd;
+                calculateLegacy();
+            } catch (error) {
+                currentUsdtRate = 1.00;
+                calculateLegacy();
+            }
+        }
+
+        /* ===== タブ切り替え ===== */
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const subtitles = {
+            legacy: '※WKEYの現在価格が維持されたと仮定して、380日間のリリース分を売却した場合のシミュレーションです。',
+            staking: '※DAO2をステーキングした場合の、年利ベースでの複利利息シミュレーションです。'
+        };
+
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabButtons.forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+                document.getElementById('page-subtitle').innerText = subtitles[btn.dataset.tab];
+            });
+        });
+
+        /* ===== DAO2枚数 / DAO2価格 / 投資額(USDT) の三角連動 ===== */
+        let dao2TriangleOrder = ['inputDao2Amount', 'inputDao2Price', 'inputJPY'];
+
+        function markDao2FieldEdited(id) {
+            const idx = dao2TriangleOrder.indexOf(id);
+            if (idx !== -1) dao2TriangleOrder.splice(idx, 1);
+            dao2TriangleOrder.unshift(id);
+        }
+
+        function updateDao2Triangle(editedId) {
+            if (editedId) markDao2FieldEdited(editedId);
+
+            const badges = {
+                inputDao2Amount: document.getElementById('dao2AmountAutoBadge'),
+                inputDao2Price: document.getElementById('dao2PriceAutoBadge'),
+                inputJPY: document.getElementById('jpyAutoBadge')
+            };
+            Object.values(badges).forEach(b => b.style.display = 'none');
+
+            const target = dao2TriangleOrder[dao2TriangleOrder.length - 1];
+            const others = dao2TriangleOrder.slice(0, 2);
+
+            const rawValues = {};
+            others.forEach(id => { rawValues[id] = document.getElementById(id).value; });
+            const bothKnown = others.every(id => rawValues[id] !== '' && Number(rawValues[id]) > 0);
+            if (!bothKnown) return;
+
+            const amount = Number(document.getElementById('inputDao2Amount').value);
+            const price = Number(document.getElementById('inputDao2Price').value);
+            const usdt = Number(document.getElementById('inputJPY').value);
+
+            if (target === 'inputJPY') {
+                document.getElementById('inputJPY').value = Number((amount * price).toFixed(2));
+            } else if (target === 'inputDao2Amount') {
+                document.getElementById('inputDao2Amount').value = Number((usdt / price).toFixed(4));
+            } else if (target === 'inputDao2Price') {
+                document.getElementById('inputDao2Price').value = Number((usdt / amount).toFixed(6));
+            }
+
+            badges[target].style.display = 'inline-block';
+        }
+
+        /* ===== ② WBO シミュレーター ===== */
+        function calculateLegacy() {
+            const usdt = Number(document.getElementById('inputJPY').value) || 0;
+            const priceUsd = Number(document.getElementById('inputPrice').value) || 1;
+            const feeRate = Number(document.getElementById('inputFee').value) || 0;
+            const usdtRate = currentUsdtRate || 1;
+
+            const daysTotal = 380;
+            const daysMonth = 30;
+            const sellFeeMultiplier = 1 - (feeRate / 100);
+
+            // 投資額(USDT)を、USDTの実勢レートで実際のUSD価値に換算
+            const usdValue = usdt * usdtRate;
+
+            // パターン1: 45%割引 (0.55)
+            const initialValue45 = usdValue / 0.55;
+            const tokens45 = initialValue45 / priceUsd;
+            const dailyGross45 = initialValue45 / daysTotal;
+            const dailyNet45 = dailyGross45 * sellFeeMultiplier;
+            const monthNet45 = dailyNet45 * daysMonth;
+            const totalNet45 = dailyNet45 * daysTotal;
+            const profit45 = totalNet45 - usdValue;
+
+            document.getElementById('out45-tokens').innerText = formatWKEY(tokens45);
+            document.getElementById('out45-initial').innerText = formatUSD(initialValue45);
+            document.getElementById('out45-daily').innerText = formatUSD(dailyNet45) + ' /日';
+            document.getElementById('out45-month').innerText = formatUSD(monthNet45);
+            document.getElementById('out45-total').innerText = formatUSD(totalNet45);
+            document.getElementById('out45-profit').innerText = formatUSD(profit45);
+            document.getElementById('out45-profit').className = profit45 >= 0 ? 'data-value highlight-value profit' : 'data-value highlight-value loss';
+
+            // パターン2: 10%割引 (0.90)
+            const initialValue10 = usdValue / 0.90;
+            const tokens10 = initialValue10 / priceUsd;
+            const dailyGross10 = initialValue10 / daysTotal;
+            const dailyNet10 = dailyGross10 * sellFeeMultiplier;
+            const monthNet10 = dailyNet10 * daysMonth;
+            const totalNet10 = dailyNet10 * daysTotal;
+            const profit10 = totalNet10 - usdValue;
+
+            document.getElementById('out10-tokens').innerText = formatWKEY(tokens10);
+            document.getElementById('out10-initial').innerText = formatUSD(initialValue10);
+            document.getElementById('out10-daily').innerText = formatUSD(dailyNet10) + ' /日';
+            document.getElementById('out10-month').innerText = formatUSD(monthNet10);
+            document.getElementById('out10-total').innerText = formatUSD(totalNet10);
+            document.getElementById('out10-profit').innerText = formatUSD(profit10);
+            document.getElementById('out10-profit').className = profit10 >= 0 ? 'data-value highlight-value profit' : 'data-value highlight-value loss';
+        }
+
+        /* ===== ① ステーキングシミュレーター (DAO2複利利息) ===== */
+        function calculateStaking() {
+            const amount = Number(document.getElementById('inputStakeAmount').value) || 0;
+            const price = Number(document.getElementById('inputStakePrice').value) || 0;
+            const apy = Number(document.getElementById('inputStakeApy').value) || 0;
+            const days = Number(document.getElementById('inputStakeDays').value) || 0;
+
+            const growthFactor = 1 + (apy / 100); // 年間の成長倍率
+            const initialValue = amount * price;
+
+            // 複利: 年間成長倍率を経過日数分だけ按分して指数計算
+            const finalTokens = amount * Math.pow(growthFactor, days / 365);
+
+            const dailyInterest = amount * (Math.pow(growthFactor, 1 / 365) - 1);
+            const monthInterest = amount * (Math.pow(growthFactor, 30 / 365) - 1);
+
+            const finalValue = finalTokens * price;
+            const gain = finalValue - initialValue;
+
+            document.getElementById('out-stake-initial').innerText = formatUSD(initialValue);
+            document.getElementById('out-stake-daily').innerText = formatDAO2(dailyInterest);
+            document.getElementById('out-stake-month').innerText = formatDAO2(monthInterest);
+            document.getElementById('out-stake-finaltokens').innerText = formatDAO2(finalTokens);
+            document.getElementById('out-stake-finalvalue').innerText = formatUSD(finalValue);
+            document.getElementById('out-stake-gain').innerText = formatUSD(gain);
+            
+            // クラスを上書きしてクリック機能が消えないように修正
+            const gainClass = gain >= 0 ? 'profit' : 'loss';
+            document.getElementById('out-stake-gain').className = `data-value highlight-value clickable ${gainClass}`;
+
+            document.getElementById('out-stake-summary').innerHTML =
+                `${formatDAO2(amount)}（${formatUSD(initialValue)}相当）を年利 <strong>${apy}%</strong> で ` +
+                `${days}日間複利運用すると、最終的に <strong>${formatDAO2(finalTokens)}</strong>（${formatUSD(finalValue)}相当）になる計算です。` +
+                `価格が現在のまま変わらないと仮定した場合、利息による増加額は <strong>${formatUSD(gain)}</strong> です。`;
+
+            drawStakingChart(amount, growthFactor, days);
+        }
+
+        /* ===== 保有DAO2枚数の推移グラフ(SVG) ===== */
+        function drawStakingChart(amount, growthFactor, days) {
+            const container = document.getElementById('stakeChartContainer');
+            document.getElementById('stakeChartDaysLabel').innerText = days + '日間';
+
+            if (amount <= 0 || days <= 0) {
+                container.innerHTML = '';
+                document.getElementById('stakeChartStartLabel').innerText = '開始: ' + formatDAO2(amount);
+                document.getElementById('stakeChartEndLabel').innerText = '終了: ' + formatDAO2(amount);
+                return;
+            }
+
+            const pointCount = Math.min(60, Math.max(10, days));
+            const points = [];
+            for (let i = 0; i <= pointCount; i++) {
+                const t = (days * i) / pointCount;
+                const value = amount * Math.pow(growthFactor, t / 365);
+                points.push({ t, value });
+            }
+
+            const width = 700;
+            const height = 300;
+            const padding = { top: 24, right: 20, bottom: 55, left: 70 };
+            const plotW = width - padding.left - padding.right;
+            const plotH = height - padding.top - padding.bottom;
+
+            const minVal = points[0].value;
+            const maxVal = points[points.length - 1].value;
+            const valRange = (maxVal - minVal) || 1;
+
+            const xFor = (t) => padding.left + (t / days) * plotW;
+            const yFor = (v) => padding.top + plotH - ((v - minVal) / valRange) * plotH;
+
+            const linePath = points.map((p, i) => (i === 0 ? 'M' : 'L') + xFor(p.t).toFixed(2) + ',' + yFor(p.value).toFixed(2)).join(' ');
+            const areaPath = linePath + ` L${xFor(days).toFixed(2)},${(padding.top + plotH).toFixed(2)} L${xFor(0).toFixed(2)},${(padding.top + plotH).toFixed(2)} Z`;
+
+            let gridLines = '';
+            for (let g = 0; g <= 4; g++) {
+                const v = minVal + (valRange * g) / 4;
+                const y = yFor(v);
+                gridLines += `<line x1="${padding.left}" y1="${y.toFixed(2)}" x2="${width - padding.right}" y2="${y.toFixed(2)}" stroke="#e2e8f0" stroke-width="1" />`;
+                gridLines += `<text x="${padding.left - 10}" y="${(y + 4).toFixed(2)}" text-anchor="end" font-size="11" fill="#64748b">${v.toFixed(1)}</text>`;
+            }
+
+            let multiplierGuides = '';
+            let multiplierMarks = '';
+            let multiplierTicks = '';
+            const usedDayTicks = [];
+            const minPixelGap = 50; 
+            if (growthFactor > 1) {
+                const maxMultiple = maxVal / amount;
+                let markerCount = 0;
+                let lastMx = -Infinity;
+                for (let m = 2; m <= maxMultiple + 0.0001 && markerCount < 20; m++) {
+                    const tAtMultiple = 365 * Math.log(m) / Math.log(growthFactor);
+                    if (tAtMultiple >= 0 && tAtMultiple <= days) {
+                        const mx = xFor(tAtMultiple);
+                        if (mx - lastMx < minPixelGap) continue; 
+
+                        const my = yFor(amount * m);
+
+                        multiplierGuides += `<line x1="${mx.toFixed(2)}" y1="${my.toFixed(2)}" x2="${mx.toFixed(2)}" y2="${(padding.top + plotH).toFixed(2)}" stroke="#d97706" stroke-width="1" stroke-dasharray="4,3" opacity="0.5" />`;
+                        multiplierMarks += `<circle cx="${mx.toFixed(2)}" cy="${my.toFixed(2)}" r="4.5" fill="#ffffff" stroke="#d97706" stroke-width="2.5" />`;
+                        multiplierMarks += `<text x="${mx.toFixed(2)}" y="${(my - 11).toFixed(2)}" text-anchor="middle" font-size="12" font-weight="800" fill="#b45309">${m}倍</text>`;
+                        
+                        const axisY = padding.top + plotH;
+                        multiplierTicks += `<line x1="${mx.toFixed(2)}" y1="${axisY.toFixed(2)}" x2="${mx.toFixed(2)}" y2="${(axisY + 4).toFixed(2)}" stroke="#d97706" stroke-width="1.5" />`;
+                        multiplierTicks += `<text x="${mx.toFixed(2)}" y="${(axisY + 6).toFixed(2)}" text-anchor="end" font-size="10" font-weight="600" fill="#92601a" transform="rotate(-45 ${mx.toFixed(2)} ${(axisY + 6).toFixed(2)})">${Math.round(tAtMultiple)}日目</text>`;
+
+                        usedDayTicks.push(Math.round(tAtMultiple));
+                        lastMx = mx;
+                        markerCount++;
+                    }
+                }
+            }
+
+            const baseDayCandidates = [0, days];
+            const xLabels = baseDayCandidates.map(t => {
+                const tooClose = usedDayTicks.some(d => Math.abs(d - t) < (days * 0.04));
+                if (tooClose) return '';
+                const x = xFor(t);
+                const anchor = t === 0 ? 'start' : 'end';
+                return `<text x="${x.toFixed(2)}" y="${height - 8}" text-anchor="${anchor}" font-size="11" font-weight="600" fill="#334155">${Math.round(t)}日目</text>`;
+            }).join('');
+
+            const svg = `
+                <svg viewBox="0 0 ${width} ${height}" style="width:100%; height:auto; min-width:500px;" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="stakeGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.35" />
+                            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
+                        </linearGradient>
+                    </defs>
+                    ${gridLines}
+                    ${multiplierGuides}
+                    <path d="${areaPath}" fill="url(#stakeGradient)" />
+                    <path d="${linePath}" fill="none" stroke="#1e40af" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+                    <circle cx="${xFor(0).toFixed(2)}" cy="${yFor(points[0].value).toFixed(2)}" r="4" fill="#1e40af" />
+                    <circle cx="${xFor(days).toFixed(2)}" cy="${yFor(points[points.length-1].value).toFixed(2)}" r="4" fill="#f59e0b" />
+                    ${multiplierMarks}
+                    ${multiplierTicks}
+                    ${xLabels}
+                </svg>
+            `;
+
+            container.innerHTML = svg;
+            document.getElementById('stakeChartStartLabel').innerText = '開始: ' + formatDAO2(minVal);
+            document.getElementById('stakeChartEndLabel').innerText = '終了: ' + formatDAO2(maxVal);
+        }
+
+        /* ===== イベント登録 ===== */
+        ['inputPrice','inputFee'].forEach(id =>
+            document.getElementById(id).addEventListener('input', calculateLegacy)
+        );
+
+        ['inputDao2Amount', 'inputDao2Price', 'inputJPY'].forEach(id =>
+            document.getElementById(id).addEventListener('input', () => {
+                updateDao2Triangle(id);
+                calculateLegacy();
+            })
+        );
+        
+        ['inputStakeAmount','inputStakePrice','inputStakeApy','inputStakeDays'].forEach(id =>
+            document.getElementById(id).addEventListener('input', calculateStaking)
+        );
+
+        /* ===== 追加機能：ステーキング結果から投資タブへスムーズ遷移・自動入力（アクセシビリティ対応） ===== */
+        (function() {
+          function parseNumberFromFormatted(str) {
+            if (!str && str !== 0) return 0;
+            const n = String(str).replace(/[^0-9\.\-]/g, '');
+            return n === '' ? 0 : Number(n);
+          }
+
+          function showToast(message, ms = 1600) {
+            let t = document.getElementById('__app_toast');
+            if (!t) {
+              t = document.createElement('div');
+              t.id = '__app_toast';
+              t.className = 'toast';
+              document.body.appendChild(t);
+            }
+            t.innerText = message;
+            requestAnimationFrame(() => t.classList.add('show'));
+            clearTimeout(t.dismissTimer);
+            t.dismissTimer = setTimeout(() => t.classList.remove('show'), ms);
+          }
+
+          function smoothSwitchToTab(tabName, focusSelector) {
+            const btn = document.querySelector('.tab-btn[data-tab="' + tabName + '"]');
+            if (!btn) return;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('smooth-active'));
+            btn.classList.add('smooth-active');
+            btn.click();
+
+            setTimeout(() => {
+              btn.classList.remove('smooth-active');
+              if (focusSelector) {
+                const el = document.querySelector(focusSelector);
+                if (el) {
+                  try { el.focus({ preventScroll: false }); } catch(e) { el.focus(); }
+                  el.classList.add('field-highlight');
+                  setTimeout(() => el.classList.remove('field-highlight'), 1200);
+                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }
+            }, 160);
+          }
+
+          function debounce(fn, ms) {
+            let t;
+            return function(...args) {
+              clearTimeout(t);
+              t = setTimeout(() => fn.apply(this, args), ms);
+            };
+          }
+
+          function fillLegacyFromStaking(mode) {
+            const finalTokensEl = document.getElementById('out-stake-finaltokens');
+            const gainEl = document.getElementById('out-stake-gain');
+            const stakePriceInput = document.getElementById('inputStakePrice');
+
+            const finalTokens = parseNumberFromFormatted(finalTokensEl ? finalTokensEl.innerText : '');
+            const gainUsd = parseNumberFromFormatted(gainEl ? gainEl.innerText : '');
+            const stakePrice = Number(stakePriceInput ? stakePriceInput.value : 0) || 0;
+
+            const elDao2Amount = document.getElementById('inputDao2Amount');
+            const elDao2Price = document.getElementById('inputDao2Price');
+            const elJPY = document.getElementById('inputJPY');
+
+            if (mode === 'gain') {
+              if (!gainUsd || gainUsd <= 0) {
+                showToast('増加額が0です。別の操作を行ってください。');
+                return;
+              }
+              elJPY.value = Number(gainUsd.toFixed(2));
+              elDao2Price.value = isFinite(stakePrice) && stakePrice > 0 ? stakePrice : elDao2Price.value || '';
+              elDao2Amount.value = '';
+              try { markDao2FieldEdited('inputDao2Price'); } catch(e){}
+              try { markDao2FieldEdited('inputJPY'); } catch(e){}
+            } else if (mode === 'final') {
+              if (!finalTokens || finalTokens <= 0) {
+                showToast('保有DAO2が0です。別の操作を行ってください。');
+                return;
+              }
+              elDao2Amount.value = Number(finalTokens.toFixed(4));
+              elDao2Price.value = isFinite(stakePrice) && stakePrice > 0 ? stakePrice : elDao2Price.value || '';
+              elJPY.value = '';
+              try { markDao2FieldEdited('inputDao2Amount'); } catch(e){}
+              try { markDao2FieldEdited('inputDao2Price'); } catch(e){}
+            }
+
+            [elDao2Amount, elDao2Price, elJPY].forEach(el => {
+              if (!el) return;
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+
+            smoothSwitchToTab('legacy', mode === 'gain' ? '#inputJPY' : '#inputDao2Amount');
+            showToast(mode === 'gain' ? '増加額をWBOタブに反映しました' : '保有DAO2をWBOタブに反映しました');
+          }
+
+          const debouncedFill = debounce(fillLegacyFromStaking, 120);
+
+          function animateThenFill(targetEl, mode) {
+            if (!targetEl) {
+              debouncedFill(mode);
+              return;
+            }
+            targetEl.classList.add('click-press');
+            let mobileLabel;
+            if (window.matchMedia && window.matchMedia('(hover: none)').matches) {
+              mobileLabel = document.createElement('div');
+              mobileLabel.innerText = '移動中…';
+              mobileLabel.style.position = 'absolute';
+              mobileLabel.style.right = '12px';
+              mobileLabel.style.top = '-28px';
+              mobileLabel.style.background = 'rgba(2,6,23,0.9)';
+              mobileLabel.style.color = '#fff';
+              mobileLabel.style.padding = '6px 8px';
+              mobileLabel.style.borderRadius = '8px';
+              mobileLabel.style.fontSize = '12px';
+              mobileLabel.style.zIndex = '999';
+              targetEl.appendChild(mobileLabel);
+            }
+            setTimeout(() => {
+              targetEl.classList.remove('click-press');
+              if (mobileLabel && mobileLabel.parentNode) mobileLabel.parentNode.removeChild(mobileLabel);
+              debouncedFill(mode);
+            }, 160);
+          }
+
+          function onStakeResultActivateEvent(e, mode) {
+            if (e && e.preventDefault) e.preventDefault();
+            const target = e && e.currentTarget ? e.currentTarget : document.getElementById(mode === 'gain' ? 'out-stake-gain' : 'out-stake-finaltokens');
+            if (target.dataset.__animating === '1') return;
+            target.dataset.__animating = '1';
+            animateThenFill(target, mode);
+            setTimeout(() => { delete target.dataset.__animating; }, 400);
+          }
+
+          document.addEventListener('DOMContentLoaded', function() {
+            const gainEl = document.getElementById('out-stake-gain');
+            const finalTokensEl = document.getElementById('out-stake-finaltokens');
+
+            function setupClickable(el, mode, ariaLabel, tooltipText) {
+              if (!el) return;
+              el.classList.add('clickable');
+              el.setAttribute('role', 'button');
+              el.setAttribute('tabindex', '0');
+              el.setAttribute('aria-label', ariaLabel);
+              el.setAttribute('data-tooltip', tooltipText);
+              el.style.touchAction = 'manipulation';
+
+              el.addEventListener('click', function(e) { onStakeResultActivateEvent(e, mode); });
+              el.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                onStakeResultActivateEvent(e, mode);
+              }, { passive: false });
+
+              el.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onStakeResultActivateEvent(e, mode);
+                }
+              });
+            }
+
+            setupClickable(gainEl, 'gain', '増加額をWBOシミュレーターへ反映します', 'タップで金額(USD)を移動');
+            setupClickable(finalTokensEl, 'final', '最終保有DAO2をWBOシミュレーターへ反映します', 'タップで保有枚数を移動');
+          });
+        })();
+
+        /* ===== 初期計算のキック ===== */
+        fetchUsdtRate();
+        updateDao2Triangle();
+        calculateLegacy();
+        calculateStaking();
     </script>
 </body>
 </html>
